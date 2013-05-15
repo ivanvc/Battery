@@ -1,11 +1,16 @@
 #!/bin/sh
 
-battery_charge()
+battery_info()
 {
     ioreg -c AppleSmartBattery -w0 | \
     grep -o '"[^"]*" = [^ ]*' | \
     sed -e 's/= //g' -e 's/"//g' | \
-    sort | \
+    sort
+}
+
+battery_charge()
+{
+    battery_info | \
     while read key value; do
         case $key in
             "MaxCapacity")
@@ -21,10 +26,16 @@ battery_charge()
     done
 }
 
+battery_external_connected()
+{
+    battery_info | grep "ExternalConnected" | cut -f2 -d' '
+}
+
 #
 # Run Battery
 #
 
+CONNECTED=`battery_external_connected`
 BATTERY_STATUS=`battery_charge`
 [ -z "$BATTERY_STATUS" ] && exit
 
@@ -134,7 +145,11 @@ fi
 # Print the battery status
 #
 
-GRAPH=$(spark 0 ${BATTERY_STATUS} 100 | awk '{print substr($0,4,3)}')
+if [ $CONNECTED ] ; then
+  GRAPH="⚡"
+else
+  GRAPH=$(spark 0 ${BATTERY_STATUS} 100 | awk '{print substr($0,4,3)}')
+fi
 
 if [ "$tmux" == "false" ]; then
     printf "\e[0;%sm%s %s \e[m\n"  "$COLOR" "[$BATTERY_STATUS%]"  "$GRAPH"
